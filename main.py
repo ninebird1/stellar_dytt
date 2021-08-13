@@ -98,6 +98,7 @@ def parse_dytt_category():
                 if type(child) == bs4.element.Tag:
                     search_urls.append({'title':child.string,'url':child.get('value')})
     return urls, search_urls
+
 class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def __init__(self,player:StellarPlayer.IStellarPlayer):
         super().__init__(player)
@@ -111,12 +112,30 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
         self.num_page = ''
         self.search_word = ''
         self.search_movies = []
+        self.gbthread = threading.Thread(target=self._bgThread)
 
+    def _bgThread(self):
+        while len(self.categories) == 0 and not self.isExit:
+            self.parsePage()
+            time.sleep(0.001)
+        print(f'dytt bg thread:{self.gbthread.native_id} exit')
+        # 刷新界面
+        def update():
+            if self.player.isModalExist('main'):
+                self.updateLayout('main',self.makeLayout())
+                self.loading(True)
+        if hasattr(self.player,'queueTask'):
+            self.player.queueTask(update)
+        else:
+            update()
+       
     def stop(self):
+        if self.gbthread.is_alive():
+            print(f'dytt bg thread:{self.gbthread.native_id} is still running')
         return super().stop()
 
     def start(self):
-        self.parsePage()
+        self.gbthread.start()
         return super().start()
 
     def parsePage(self):
@@ -136,8 +155,7 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
                         url = concatUrl(self.curCategory, self.pages[self.pageIndex])
                         self.movies = parse_dytt_page_movies(url)  
 
-    def show(self):
-        self.parsePage()
+    def makeLayout(self):
         nav_labels = []
         for cat in self.categories:
             nav_labels.append({'type':'link','name':cat['title'],'@click':'onCategoryClick'})
@@ -167,7 +185,7 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
                             {'type':'link','name':'末页','@click':'onClickLastPage'},
                             {'type':'label','name':'num_page',':value':'num_page'},
                         ]
-                        ,'width':0.4
+                        ,'width':0.45
                     },
                     {'type':'space'}
                 ]
@@ -175,7 +193,16 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
             },
             {'type':'space','height':5}
         ]
+        return controls
+        
+    def show(self):
+        controls = self.makeLayout()
         self.doModal('main',800,600,'',controls)
+
+    def onModalCreated(self, pageId):
+        print(f'dytt onModalCreated {pageId=}')
+        if len(self.movies) == 0:
+            self.loading()
 
     def onSearchInput(self,*args):
         print(f'{self.search_word}')
@@ -204,9 +231,11 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
                     self.curCategory = cat['url']
                     self.pageIndex = 0
                     #获取新分类的页面数
+                    self.loading()
                     self.pages = parse_dytt_page_num(self.curCategory)
                     self.num_page = '共' + str(len(self.pages)) + '页'
                     self.selectPage()
+                    self.loading(True)
                 break
         
     def onPlayClick(self, pageId, control, item, *args):
@@ -219,6 +248,8 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
 
     def selectPage(self):
         if len(self.pages) > self.pageIndex:
+                self.movies.clear()
+                self.player.updateControlValue('main','list',self.movies)
                 url = concatUrl(self.curCategory, self.pages[self.pageIndex])
                 self.movies = parse_dytt_page_movies(url)
                 self.player.updateControlValue('main','list',self.movies)
@@ -227,23 +258,35 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def onClickFormerPage(self, *args):
         if self.pageIndex > 0:
             self.pageIndex = self.pageIndex - 1
+            self.loading()
             self.selectPage()
+            self.loading(True)
 
     def onClickNextPage(self, *args):
         num_page = len(self.pages)
         if self.pageIndex + 1 < num_page:
             self.pageIndex = self.pageIndex + 1
+            self.loading()
             self.selectPage()
+            self.loading(True)
 
     def onClickFirstPage(self, *args):
         if self.pageIndex != 0:
             self.pageIndex = 0
+            self.loading()
             self.selectPage()
+            self.loading(True)
 
     def onClickLastPage(self, *args):
         if self.pageIndex != len(self.pages) - 1:
             self.pageIndex = len(self.pages) - 1
+            self.loading()
             self.selectPage()
+            self.loading(True)
+
+    def loading(self, stopLoading = False):
+        if hasattr(self.player,'loadingAnimation'):
+            self.player.loadingAnimation('main', stop=stopLoading)
     
 def newPlugin(player:StellarPlayer.IStellarPlayer,*arg):
     plugin = dyttplugin(player)
