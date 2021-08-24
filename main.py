@@ -112,6 +112,7 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
         self.num_page = ''
         self.search_word = ''
         self.search_movies = []
+        self.detail_urls = []
         self.gbthread = threading.Thread(target=self._bgThread)
 
     def _bgThread(self):
@@ -160,7 +161,15 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
         for cat in self.categories:
             nav_labels.append({'type':'link','name':cat['title'],'@click':'onCategoryClick'})
 
-        list_layout = {'group':[{'type':'label','name':'title','width':0.9},{'type':'link','name':'播放','width':30,'@click':'onPlayClick'},{'type':'space'}]}
+        list_layout = {'group':
+                            [
+                                {'type':'label','name':'title','width':0.9},
+                                {'type':'link','name':'详情','width':30,'@click':'onDetailClick'},
+                                {'type':'space','width':10},
+                                {'type':'link','name':'播放','width':30,'@click':'onPlayClick'},
+                                {'type':'space'}
+                            ]
+                      }
         controls = [
             {'group':nav_labels,'height':30},
             {'type':'space','height':10},
@@ -186,6 +195,7 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
                             {'type':'label','name':'num_page',':value':'num_page'},
                         ]
                         ,'width':0.45
+                        ,'hAlign':'center'
                     },
                     {'type':'space'}
                 ]
@@ -201,8 +211,11 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
 
     def onModalCreated(self, pageId):
         print(f'dytt onModalCreated {pageId=}')
-        if len(self.movies) == 0:
-            self.loading()
+        if pageId == 'main':
+            if len(self.movies) == 0:
+                self.loading()
+        elif pageId != 'search':
+            self.loadingPage(pageId)
 
     def onSearchInput(self,*args):
         print(f'{self.search_word}')
@@ -246,6 +259,67 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
         if playUrl:
             self.player.play(playUrl)
 
+    def onDetailClick(self, pageId, control, item, *args):
+        url = self.movies[item]['url']
+        title = self.movies[item]['title']
+        print(url)
+        def parse_dytt_detail():
+            res = requests.get(url,verify=False)
+            if res.status_code == 200:
+                controls = []
+                bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
+                #解析图片
+                selector = bs.select('#Zoom > span  img')
+                for item in selector:
+                    controls.append({'type':'image','value':item.get('src'),'width':200,'height':300})
+
+                #解析简介
+                skip = False
+                selector = bs.select('#Zoom > span > td')
+                for item in selector:
+                    for br in item.children:
+                        if not br.string:
+                            continue
+                        href = None
+                        if type(br) == bs4.element.Tag:
+                            href = br.get('href')
+                        if not re.match(r'主演|导演|演员|编剧',re.sub(r'\W+','',br.string)) or href:
+                            if re.match(r'标签|简介',re.sub(r'\W+','',br.string)):
+                                skip = False
+                            if not skip or href:
+                                if type(br) == bs4.element.NavigableString:
+                                    controls.append({'type':'label','value':br.string,'height':20})
+                                elif href:
+                                    controls.append({'type':'link','name':br.string,'height':30,'@click':'on_detail_page_play'})
+                                     #保存页面对应的详情播放地址
+                                    self.detail_urls.append({'title':title,'url':href})
+                        else:
+                            skip = True
+                
+                def update_detail_ui():
+                    self.loadingPage(title, True)
+                    self.updateLayout(title, controls)
+                   
+                if hasattr(self.player,'queueTask'):
+                    self.player.queueTask(update_detail_ui)
+                else:
+                    update_detail_ui()
+
+        t = threading.Thread(target=parse_dytt_detail)
+        t.start()
+        self.doModal(title, 600, 800, title, [])
+        #删除详情播放地址
+        for item in self.detail_urls:
+            if item['title'] == url:
+                self.detail_urls.remove(item)
+                break
+
+    def on_detail_page_play(self,pageId, *args):
+         for item in self.detail_urls:
+            if item['title'] == pageId:
+                self.player.play(item['url'])
+                break
+
     def selectPage(self):
         if len(self.pages) > self.pageIndex:
                 self.movies.clear()
@@ -287,6 +361,10 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def loading(self, stopLoading = False):
         if hasattr(self.player,'loadingAnimation'):
             self.player.loadingAnimation('main', stop=stopLoading)
+
+    def loadingPage(self, page, stopLoading = False):
+        if hasattr(self.player,'loadingAnimation'):
+            self.player.loadingAnimation(page, stop=stopLoading)
     
 def newPlugin(player:StellarPlayer.IStellarPlayer,*arg):
     plugin = dyttplugin(player)
