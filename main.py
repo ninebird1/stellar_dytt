@@ -161,15 +161,16 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
         for cat in self.categories:
             nav_labels.append({'type':'link','name':cat['title'],'@click':'onCategoryClick'})
 
-        list_layout = {'group':
-                            [
-                                {'type':'label','name':'title','width':0.9},
-                                {'type':'link','name':'详情','width':30,'@click':'onDetailClick'},
-                                {'type':'space','width':10},
-                                {'type':'link','name':'播放','width':30,'@click':'onPlayClick'},
-                                {'type':'space'}
-                            ]
-                      }
+        list_layout = [
+                            {'type':'label','name':'title'},
+                            {'type':'link','name':'详情','width':30,'@click':'onDetailClick'},
+                            {'type':'space','width':10},
+                            {'type':'link','name':'播放','width':30,'@click':'onPlayClick'},
+                      ]
+        if hasattr(self.player,'download'):
+            list_layout.append({'type':'space','width':10})
+            list_layout.append({'type':'link','name':'下载','width':30,'@click':'onDownloadClick'})
+
         controls = [
             {'group':nav_labels,'height':30},
             {'type':'space','height':10},
@@ -181,7 +182,7 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
                 ,'height':30
             },
             {'type':'space','height':10},
-            {'type':'list','name':'list','itemlayout':list_layout,'value':self.movies,'separator':True,'itemheight':40},
+            {'type':'list','name':'list','itemlayout':{'group':list_layout},'value':self.movies,'separator':True,'itemheight':40},
             {'group':
                 [
                     {'type':'space'},
@@ -259,6 +260,14 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
             playUrl = parse_dytt_movie(self.search_movies[item]['url'])
         if playUrl:
             self.player.play(playUrl)
+
+    def onDownloadClick(self, pageId, control, item, *args):
+        if pageId == 'main':
+            playUrl = parse_dytt_movie(self.movies[item]['url'])
+        elif pageId == 'search':
+            playUrl = parse_dytt_movie(self.search_movies[item]['url'])
+        if playUrl:
+            self.player.download(playUrl)
 
     def onDetailClick(self, pageId, control, item, *args):
         url = self.movies[item]['url']
