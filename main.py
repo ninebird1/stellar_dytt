@@ -6,7 +6,7 @@ import StellarPlayer
 import re
 import urllib.parse
 
-dytt_url = 'https://www.dytt8.net'
+dytt_url = 'https://www.dy2018.com'
 
 def concatUrl(url1, url2):
     splits = re.split(r'/+',url1)
@@ -22,7 +22,7 @@ def parse_dytt_movie(url):
     res = requests.get(url,verify=False)
     if res.status_code == 200:
         bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
-        selector = bs.select('#Zoom > span a')
+        selector = bs.select('#downlist > table > tbody > tr > td > a')
         print(selector)
         for item in selector:
             return item.get('href')
@@ -77,7 +77,7 @@ def parse_dytt_page_num(pageUrl):
 def parse_dytt_category():
     urls = []
     search_urls = []
-    blacks = ['经典影片','旧版游戏','游戏下载','收藏本站','APP下载']
+    blacks = ['经典影片','旧版游戏','游戏下载','收藏本站','APP下载','华语连续剧','设为主页','留言板']
     res = requests.get(dytt_url,verify=False)
     if res.status_code == 200:
         bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'), 'html.parser')
@@ -279,13 +279,13 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
                 controls = []
                 bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
                 #解析图片
-                selector = bs.select('#Zoom > span  img')
+                selector = bs.select('#Zoom img')
                 for item in selector:
                     controls.append({'type':'image','value':item.get('src'),'width':200,'height':300})
 
                 #解析简介
                 skip = False
-                selector = bs.select('#Zoom > span > td')
+                selector = bs.select('#Zoom  td')
                 for item in selector:
                     for br in item.children:
                         if not br.string:
