@@ -92,12 +92,19 @@ def parse_dytt_category():
                         if not child.string in blacks:
                             urls.append({'title':child.string,'url':url})
         #获取搜索页面链接
-        selector = bs.select('#header > div > div.bd2 > div.bd3 > div:nth-child(2) > div:nth-child(1) > div > div.search > form > div.searchl > p:nth-child(1) > select')
-        for item in selector:
-            for child in item.children:
-                if type(child) == bs4.element.Tag:
-                    search_urls.append({'title':child.string,'url':child.get('value')})
+        search_urls.append({'url':concatUrl(dytt_url,'/e/search/index.php')})
     return urls, search_urls
+
+def search_66ys_page_movies(search_url, search_word):
+    urls = []
+    res = requests.post(search_url,data={'show':'title,smalltext','keyboard':search_word.encode('gb2312')},verify=False)
+    if res.status_code == 200:
+        bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
+        ul = bs.select('#header > div > div.bd2 > div.bd3 > div.bd3r2 > div.co_area2 > div.co_content8 > ul table a')
+        for a in ul:
+            print(a)
+            urls.append({'url':concatUrl(dytt_url, a.get('href')),'title':a.get('title')})
+    return urls
 
 class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def __init__(self,player:StellarPlayer.IStellarPlayer):
@@ -224,9 +231,9 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def onSearch(self,*args):
         self.search_word = self.player.getControlValue('main','search_edit')
         if len(self.search_urls) > 0:
-            url = self.search_urls[0]['url'] + urllib.parse.quote(self.search_word,encoding='gbk')
+            url = self.search_urls[0]['url']
             print(f'url={url}')
-            self.search_movies = parse_dytt_page_movies(url)
+            self.search_movies = search_66ys_page_movies(url, self.search_word)
             if len(self.search_movies) > 0:
                 list_layout = {'group':[{'type':'label','name':'title','width':0.9},{'type':'link','name':'播放','width':30,'@click':'onPlayClick'},{'type':'space'}]}
                 controls = {'type':'list','name':'list','itemlayout':list_layout,'value':self.search_movies,'separator':True,'itemheight':40}
