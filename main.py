@@ -6,7 +6,7 @@ import StellarPlayer
 import re
 import urllib.parse
 
-dytt_url = 'https://www.dy2018.com'
+dytt_url = 'https://www.dy2018.com/'
 
 def concatUrl(url1, url2):
     splits = re.split(r'/+',url1)
@@ -92,6 +92,7 @@ def parse_dytt_category():
                         if not child.string in blacks:
                             urls.append({'title':child.string,'url':url})
         #获取搜索页面链接
+        print(urls)
         search_urls.append({'url':concatUrl(dytt_url,'/e/search/index.php')})
     return urls, search_urls
 
@@ -100,7 +101,8 @@ def search_66ys_page_movies(search_url, search_word):
     res = requests.post(search_url,data={'show':'title,smalltext','keyboard':search_word.encode('gb2312')},verify=False)
     if res.status_code == 200:
         bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
-        ul = bs.select('#header > div > div.bd2 > div.bd3 > div.bd3r2 > div.co_area2 > div.co_content8 > ul table a')
+        #header > div > div.bd2 > div.bd3 > div.bd3r > div.co_area2 > div.co_content8 > ul > table:nth-child(1) > tbody > tr:nth-child(2) > td:nth-child(2) > b > a:nth-child(2)
+        ul = bs.select('#header ul table a')
         for a in ul:
             print(a)
             urls.append({'url':concatUrl(dytt_url, a.get('href')),'title':a.get('title')})
