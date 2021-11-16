@@ -6,7 +6,7 @@ import StellarPlayer
 import re
 import urllib.parse
 
-dytt_url = 'https://www.dy2018.com/'
+dytt_url = 'https://www.ygdy8.com/index1.htm'
 
 def concatUrl(url1, url2):
     splits = re.split(r'/+',url1)
@@ -22,7 +22,7 @@ def parse_dytt_movie(url):
     res = requests.get(url,verify=False)
     if res.status_code == 200:
         bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
-        selector = bs.select('#downlist > table > tbody > tr > td > a')
+        selector = bs.select('#Zoom > span a')
         print(selector)
         for item in selector:
             return item.get('href')
@@ -77,11 +77,12 @@ def parse_dytt_page_num(pageUrl):
 def parse_dytt_category():
     urls = []
     search_urls = []
-    blacks = ['经典影片','旧版游戏','游戏下载','收藏本站','APP下载','华语连续剧','设为主页','留言板']
+    blacks = ['经典影片','旧版游戏','游戏下载','收藏本站','APP下载']
     res = requests.get(dytt_url,verify=False)
     if res.status_code == 200:
         bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'), 'html.parser')
         selector = bs.select('#menu > div > ul > li')
+        print(selector)
         for item in selector:
             for child in item.children:
                 if type(child) == bs4.element.Tag:
@@ -92,21 +93,12 @@ def parse_dytt_category():
                         if not child.string in blacks:
                             urls.append({'title':child.string,'url':url})
         #获取搜索页面链接
-        print(urls)
-        search_urls.append({'url':concatUrl(dytt_url,'/e/search/index.php')})
+        selector = bs.select('#header > div > div.bd2 > div.bd3 > div:nth-child(2) > div:nth-child(1) > div > div.search > form > div.searchl > p:nth-child(1) > select')
+        for item in selector:
+            for child in item.children:
+                if type(child) == bs4.element.Tag:
+                    search_urls.append({'title':child.string,'url':child.get('value')})
     return urls, search_urls
-
-def search_66ys_page_movies(search_url, search_word):
-    urls = []
-    res = requests.post(search_url,data={'show':'title,smalltext','keyboard':search_word.encode('gb2312')},verify=False)
-    if res.status_code == 200:
-        bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
-        #header > div > div.bd2 > div.bd3 > div.bd3r > div.co_area2 > div.co_content8 > ul > table:nth-child(1) > tbody > tr:nth-child(2) > td:nth-child(2) > b > a:nth-child(2)
-        ul = bs.select('#header ul table a')
-        for a in ul:
-            print(a)
-            urls.append({'url':concatUrl(dytt_url, a.get('href')),'title':a.get('title')})
-    return urls
 
 class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def __init__(self,player:StellarPlayer.IStellarPlayer):
@@ -233,9 +225,9 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def onSearch(self,*args):
         self.search_word = self.player.getControlValue('main','search_edit')
         if len(self.search_urls) > 0:
-            url = self.search_urls[0]['url']
+            url = self.search_urls[0]['url'] + urllib.parse.quote(self.search_word,encoding='gbk')
             print(f'url={url}')
-            self.search_movies = search_66ys_page_movies(url, self.search_word)
+            self.search_movies = parse_dytt_page_movies(url)
             if len(self.search_movies) > 0:
                 list_layout = {'group':[{'type':'label','name':'title','width':0.9},{'type':'link','name':'播放','width':30,'@click':'onPlayClick'},{'type':'space'}]}
                 controls = {'type':'list','name':'list','itemlayout':list_layout,'value':self.search_movies,'separator':True,'itemheight':40}
@@ -288,13 +280,13 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
                 controls = []
                 bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
                 #解析图片
-                selector = bs.select('#Zoom img')
+                selector = bs.select('#Zoom > span  img')
                 for item in selector:
                     controls.append({'type':'image','value':item.get('src'),'width':200,'height':300})
 
                 #解析简介
                 skip = False
-                selector = bs.select('#Zoom  td')
+                selector = bs.select('#Zoom > span > td')
                 for item in selector:
                     for br in item.children:
                         if not br.string:
