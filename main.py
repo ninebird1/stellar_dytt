@@ -6,7 +6,7 @@ import StellarPlayer
 import re
 import urllib.parse
 
-dytt_url = 'https://www.ygdy8.com/index1.htm'
+dytt_url = 'https://www.dydytt.net/index2.htm'
 
 def concatUrl(url1, url2):
     splits = re.split(r'/+',url1)
