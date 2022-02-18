@@ -1,3 +1,4 @@
+from operator import le
 import threading
 import time
 import bs4
@@ -28,6 +29,23 @@ def parse_dytt_movie(url):
             return item.get('href')
     else:
         print(res.text)
+
+def parse_dytt_movie_and_pic(url):
+    print(f'parse_dytt_movie_and_pic:{url=}')
+    res = requests.get(url,verify=False)
+    obj = {}
+    if res.status_code == 200:
+        bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
+        selector = bs.select('#Zoom > span a')
+        for item in selector:
+            obj['movie'] = item.get('href')
+        selector = bs.select('#Zoom > span img')
+        for item in selector:
+            obj['pic'] = item.get('src')
+    else:
+        print(res.text)
+    print(obj)
+    return obj
 
 #爬取某个分类页面的所有影视页面链接
 def parse_dytt_page_movies(page_url):
@@ -377,6 +395,25 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
     def loadingPage(self, page, stopLoading = False):
         if hasattr(self.player,'loadingAnimation'):
             self.player.loadingAnimation(page, stop=stopLoading)
+
+    def onPlayerSearch(self, dispatchId, searchId, wd, limit):
+        # 播放器搜索异步接口
+        print(f'onPlayerSearch:{wd}')
+        result = []
+        if len(self.search_urls) > 0:
+            url = self.search_urls[0]['url'] + urllib.parse.quote(wd,encoding='gbk')
+            print(f'url={url}')
+            movies = parse_dytt_page_movies(url)
+            for item in movies:
+                mov = parse_dytt_movie_and_pic(item['url'])
+                if mov.get('movie'):
+                    magnet = mov['movie']
+                    pic_url = mov.get('pic', None)
+                    if magnet.startswith('magnet'):
+                        result.append({'name':item['title'],'urls':[['磁力',magnet]],'pic':pic_url})
+                if len(result) >= limit:
+                    break
+        self.player.dispatchResult(dispatchId, searchId=searchId, wd=wd, result=result)
     
 def newPlugin(player:StellarPlayer.IStellarPlayer,*arg):
     plugin = dyttplugin(player)
