@@ -400,19 +400,21 @@ class dyttplugin(StellarPlayer.IStellarPlayerPlugin):
         # 播放器搜索异步接口
         print(f'onPlayerSearch:{wd}')
         result = []
+        url='http://s.ygdy8.com/plus/s01.php'
         if len(self.search_urls) > 0:
-            url = self.search_urls[0]['url'] + urllib.parse.quote(wd,encoding='gbk')
-            print(f'url={url}')
-            movies = parse_dytt_page_movies(url)
-            for item in movies:
-                mov = parse_dytt_movie_and_pic(item['url'])
-                if mov.get('movie'):
-                    magnet = mov['movie']
-                    pic_url = mov.get('pic', None)
-                    if magnet.startswith('magnet'):
-                        result.append({'name':item['title'],'urls':[['磁力',magnet]],'pic':pic_url})
-                if len(result) >= limit:
-                    break
+            url = self.search_urls[0]['url']
+        url = url + urllib.parse.quote(wd,encoding='gbk')
+        print(f'url={url}')
+        movies = parse_dytt_page_movies(url)
+        for item in movies:
+            mov = parse_dytt_movie_and_pic(item['url'])
+            if mov.get('movie'):
+                magnet = mov['movie']
+                pic_url = mov.get('pic', None)
+                if magnet.startswith('magnet'):
+                    result.append({'name':item['title'],'urls':[['磁力',magnet]],'pic':pic_url})
+            if len(result) >= limit:
+                break
         self.player.dispatchResult(dispatchId, searchId=searchId, wd=wd, result=result)
     
 def newPlugin(player:StellarPlayer.IStellarPlayer,*arg):
