@@ -7,7 +7,7 @@ import StellarPlayer
 import re
 import urllib.parse
 
-dytt_url = 'https://www.dydytt.net/index2.htm'
+dytt_url = 'https://www.dydytt.net/index.htm'
 
 def concatUrl(url1, url2):
     splits = re.split(r'/+',url1)
@@ -53,22 +53,22 @@ def parse_dytt_page_movies(page_url):
     res = requests.get(page_url,verify=False)
     if res.status_code == 200:
         bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
-        selector = bs.select('#header > div > div.bd2 > div.bd3 > div.bd3r > div.co_area2 > div.co_content8 > ul')
-        for ul in selector:
-            for item in ul.select('table a'):
-                url = concatUrl(page_url,item.get('href'))
-                title = ''
-                #普通页面的情况
-                if item.string:
-                    if not re.match(r'\[(\w+)\]', item.string):
-                        title = item.string
-                #搜索页面情况
-                else:
-                    for nav_str in item.children:
-                        if nav_str.string:
-                            title = title + nav_str.string
-                if title:
-                    urls.append({'title':title,'url':url})
+        selector = bs.select('#header > div > div.bd2 > div.bd3 > div.bd3r > div.co_area2 > div.co_content8 > ul table a')
+        for item in selector:
+            url = concatUrl(page_url,item.get('href'))
+            title = ''
+            #普通页面的情况
+            if item.string:
+                if not re.match(r'\[(\w+)\]', item.string):
+                    title = item.string
+            #搜索页面情况
+            else:
+                for nav_str in item.children:
+                    if nav_str.string:
+                        title = title + nav_str.string
+            if title:
+                urls.append({'title':title,'url':url})
+                
     else:
         print(res.text)
     return urls
@@ -80,13 +80,11 @@ def parse_dytt_page_num(pageUrl):
     res = requests.get(pageUrl,verify=False)
     if res.status_code == 200:
          bs = bs4.BeautifulSoup(res.content.decode('gb2312','ignore'),'html.parser')
-         selector = bs.select('#header > div > div.bd2 > div.bd3 > div.bd3r > div.co_area2 > div.co_content8 > div  select')
+         selector = bs.select('#header > div > div.bd2 > div.bd3 > div.bd3r > div.co_area2 > div.co_content8 > div select option')
          for item in selector:
-             for child in item.children:
-                 if type(child) == bs4.element.Tag:
-                    page = child.get('value')
-                    if page:
-                        pages.append(page)
+            page = item.get('value')
+            if page:
+                pages.append(page)
     else:
         print(res.text)
     return pages
@@ -102,14 +100,16 @@ def parse_dytt_category():
         selector = bs.select('#menu > div > ul > li')
         print(selector)
         for item in selector:
-            for child in item.children:
-                if type(child) == bs4.element.Tag:
-                    url = child.get('href')
-                    if url:
-                        if not re.match(r'http',url):
-                            url = concatUrl(dytt_url, url)
-                        if not child.string in blacks:
-                            urls.append({'title':child.string,'url':url})
+            a = item.select('a')
+            if len(a) > 0:
+                child = a[0]
+                url = child.get('href')
+                if url:
+                    if not re.match(r'http',url):
+                        url = concatUrl(dytt_url, url)
+                    if not child.string in blacks:
+                        urls.append({'title':child.string,'url':url})
+            
         #获取搜索页面链接
         selector = bs.select('#header > div > div.bd2 > div.bd3 > div:nth-child(2) > div:nth-child(1) > div > div.search > form > div.searchl > p:nth-child(1) > select')
         for item in selector:
